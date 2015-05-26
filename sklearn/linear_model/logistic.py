@@ -391,6 +391,211 @@ def _multinomial_grad_hess(w, X, Y, alpha, sample_weight):
     return grad, hessp
 
 
+import time
+
+class Callback(object):
+    def __init__(self):
+        self.t0 = time.time()
+        self.times = list()
+        self.coefs = list()
+
+    def __call__(self, coef):
+        self.times.append(time.time() - self.t0)
+        self.coefs.append(np.copy(coef))
+
+
+def my_logistic_regression_path(X, y, pos_class=None, Cs=10, fit_intercept=True,
+                             max_iter=100, tol=1e-4, verbose=0,
+                             solver='lbfgs', coef=None, copy=True,
+                             class_weight=None, dual=False, penalty='l2',
+                             intercept_scaling=1., multi_class='ovr'):
+    """My Logistic Regression Path
+    """
+ 
+    if isinstance(Cs, numbers.Integral):
+        Cs = np.logspace(-4, 4, Cs)
+
+    if multi_class not in ['multinomial', 'ovr']:
+        raise ValueError("multi_class can be either 'multinomial' or 'ovr'"
+                         "got %s" % multi_class)
+
+    if solver not in ['liblinear', 'newton-cg', 'lbfgs']:
+        raise ValueError("Logistic Regression supports only liblinear,"
+                         " newton-cg and lbfgs solvers. got %s" % solver)
+
+    if multi_class == 'multinomial' and solver == 'liblinear':
+        raise ValueError("Solver %s cannot solve problems with "
+                         "a multinomial backend." % solver)
+
+    if solver != 'liblinear':
+        if penalty != 'l2':
+            raise ValueError("newton-cg and lbfgs solvers support only "
+                             "l2 penalties, got %s penalty." % penalty)
+        if dual:
+            raise ValueError("newton-cg and lbfgs solvers support only "
+                             "dual=False, got dual=%s" % dual)
+    # Preprocessing.
+    X = check_array(X, accept_sparse='csr', dtype=np.float64)
+    y = check_array(y, ensure_2d=False, copy=copy)
+    _, n_features = X.shape
+    check_consistent_length(X, y)
+    classes = np.unique(y)
+
+    if pos_class is None and multi_class != 'multinomial':
+        if (classes.size > 2):
+            raise ValueError('To fit OvR, use the pos_class argument')
+        # np.unique(y) gives labels in sorted order.
+        pos_class = classes[1]
+
+    # If class_weights is a dict (provided by the user), the weights
+    # are assigned to the original labels. If it is "auto", then
+    # the class_weights are assigned after masking the labels with a OvR.
+    sample_weight = np.ones(X.shape[0])
+    le = LabelEncoder()
+
+    if isinstance(class_weight, dict):
+        if solver == "liblinear":
+            if classes.size == 2:
+                # Reconstruct the weights with keys 1 and -1
+                temp = {1: class_weight[pos_class],
+                        -1: class_weight[classes[0]]}
+                class_weight = temp.copy()
+            else:
+                raise ValueError("In LogisticRegressionCV the liblinear "
+                                 "solver cannot handle multiclass with "
+                                 "class_weight of type dict. Use the lbfgs, "
+                                 "newton-cg solvers or set "
+                                 "class_weight='auto'")
+        else:
+            class_weight_ = compute_class_weight(class_weight, classes, y)
+            sample_weight = class_weight_[le.fit_transform(y)]
+
+    # For doing a ovr, we need to mask the labels first. for the
+    # multinomial case this is not necessary.
+    if multi_class == 'ovr':
+        w0 = np.zeros(n_features + int(fit_intercept))
+        mask_classes = [-1, 1]
+        mask = (y == pos_class)
+        y[mask] = 1
+        y[~mask] = -1
+        # To take care of object dtypes, i.e 1 and -1 are in the form of
+        # strings.
+        y = as_float_array(y, copy=False)
+
+    else:
+        lbin = LabelBinarizer()
+        Y_bin = lbin.fit_transform(y)
+        if Y_bin.shape[1] == 1:
+            Y_bin = np.hstack([1 - Y_bin, Y_bin])
+        w0 = np.zeros((Y_bin.shape[1], n_features + int(fit_intercept)),
+                      order='F')
+        mask_classes = classes
+
+    if class_weight == "auto":
+        class_weight_ = compute_class_weight(class_weight, mask_classes, y)
+        sample_weight = class_weight_[le.fit_transform(y)]
+
+    if coef is not None:
+        # it must work both giving the bias term and not
+        if multi_class == 'ovr':
+            if not coef.size in (n_features, w0.size):
+                raise ValueError(
+                    'Initialization coef is of shape %d, expected shape '
+                    '%d or %d' % (coef.size, n_features, w0.size)
+                    )
+            w0[:coef.size] = coef
+        else:
+            # For binary problems coef.shape[0] should be 1, otherwise it
+            # should be classes.size.
+            n_vectors = classes.size
+            if n_vectors == 2:
+                n_vectors = 1
+
+            if (coef.shape[0] != n_vectors or
+                    coef.shape[1] not in (n_features, n_features + 1)):
+                raise ValueError(
+                    'Initialization coef is of shape (%d, %d), expected '
+                    'shape (%d, %d) or (%d, %d)' % (
+                        coef.shape[0], coef.shape[1], classes.size,
+                        n_features, classes.size, n_features + 1
+                        )
+                    )
+            w0[:, :coef.shape[1]] = coef
+
+    if multi_class == 'multinomial':
+        # fmin_l_bfgs_b and newton-cg accepts only ravelled parameters.
+        w0 = w0.ravel()
+        target = Y_bin
+        if solver == 'lbfgs':
+            func = lambda x, *args: _multinomial_loss_grad(x, *args)[0:2]
+        elif solver == 'newton-cg':
+            func = lambda x, *args: _multinomial_loss(x, *args)[0]
+            grad = lambda x, *args: _multinomial_loss_grad(x, *args)[1]
+            hess = _multinomial_loss_grad_hess
+    else:
+        target = y
+        if solver == 'lbfgs':
+            func = _logistic_loss_and_grad
+        elif solver == 'newton-cg':
+            func = _logistic_loss
+            grad = lambda x, *args: _logistic_loss_and_grad(x, *args)[1]
+            hess = _logistic_loss_grad_hess
+
+    coefs = list()
+    callbacks = list()
+    for C in Cs:
+        if solver == 'lbfgs':
+            try:
+                callback = Callback()
+                w0, loss, info = optimize.fmin_l_bfgs_b(
+                    func, w0, fprime=None,
+                    args=(X, target, 1. / C, sample_weight),
+                    iprint=(verbose > 0) - 1, pgtol=tol, maxiter=max_iter,
+                    callback=callback)  
+                callbacks.append(callback)
+                print len(callback.times)
+            except TypeError:
+                # old scipy doesn't have maxiter
+                w0, loss, info = optimize.fmin_l_bfgs_b(
+                    func, w0, fprime=None,
+                    args=(X, target, 1. / C, sample_weight),
+                    iprint=(verbose > 0) - 1, pgtol=tol
+                    )
+            if info["warnflag"] == 1 and verbose > 0:
+                warnings.warn("lbfgs failed to converge. Increase the number "
+                              "of iterations.")
+        elif solver == 'newton-cg':
+            args = (X, target, 1. / C, sample_weight)
+            w0 = newton_cg(hess, func, grad, w0, args=args, maxiter=max_iter,
+                           tol=tol)
+        elif solver == 'liblinear':
+            coef_, intercept_, _, = _fit_liblinear(
+                X, y, C, fit_intercept, intercept_scaling, class_weight,
+                penalty, dual, verbose, max_iter, tol,
+                )
+            if fit_intercept:
+                w0 = np.concatenate([coef_.ravel(), intercept_])
+            else:
+                w0 = coef_.ravel()
+        else:
+            raise ValueError("solver must be one of {'liblinear', 'lbfgs', "
+                             "'newton-cg'}, got '%s' instead" % solver) 
+        
+                    
+        if multi_class == 'multinomial':
+            multi_w0 = np.reshape(w0, (classes.size, -1))
+            if classes.size == 2:
+                multi_w0 = multi_w0[1][np.newaxis, :]
+            coefs.append(multi_w0)
+        else:
+            coefs.append(w0)
+        
+    return coefs, np.array(Cs), callback
+    
+
+
+
+
 def logistic_regression_path(X, y, pos_class=None, Cs=10, fit_intercept=True,
                              max_iter=100, tol=1e-4, verbose=0,
                              solver='lbfgs', coef=None, copy=True,
