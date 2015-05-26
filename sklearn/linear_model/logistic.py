@@ -1043,6 +1043,122 @@ def _log_reg_scoring_path(X, y, train, test, pos_class=None, Cs=10,
     return coefs, Cs, np.array(scores)
 
 
+""" MY FUNCTION """
+import pickle
+import os
+
+class MyLogisticRegression(BaseEstimator, LinearClassifierMixin,
+                         _LearntSelectorMixin, SparseCoefMixin):
+    """My logistic regression
+    """
+
+    def __init__(self, penalty='l2', dual=False, tol=1e-4, C=1.0,
+                 fit_intercept=True, intercept_scaling=1, class_weight=None,
+                 random_state=None, solver='lbfgs', max_iter=100,
+                 multi_class='ovr', verbose=0, 
+                 root_dir=os.path.join(os.getcwd(), 'coefs')):
+
+        self.penalty = penalty
+        self.dual = dual
+        self.tol = tol
+        self.C = C
+        self.fit_intercept = fit_intercept
+        self.intercept_scaling = intercept_scaling
+        self.class_weight = class_weight
+        self.random_state = random_state
+        self.solver = solver
+        self.max_iter = max_iter
+        self.multi_class = multi_class
+        self.verbose = verbose
+        self.root_dir = root_dir
+
+    def fit(self, X, y):
+        if self.C < 0:
+            raise ValueError("Penalty term must be positive; got (C=%r)"
+                             % self.C)
+
+        X, y = check_X_y(X, y, accept_sparse='csr', dtype=np.float64, order="C")
+        self.classes_ = np.unique(y)
+        if self.solver not in ['liblinear', 'newton-cg', 'lbfgs']:
+            raise ValueError(
+                "Logistic Regression supports only liblinear, newton-cg and "
+                "lbfgs solvers, Got solver=%s" % self.solver
+                )
+
+        if self.solver == 'liblinear' and self.multi_class == 'multinomial':
+            raise ValueError("Solver %s does not support a multinomial "
+                             "backend." % self.solver)
+        if self.multi_class not in ['ovr', 'multinomial']:
+            raise ValueError("multi_class should be either ovr or multinomial "
+                             "got %s" % self.multi_class)
+
+        if self.solver == 'liblinear':
+            self.coef_, self.intercept_, self.n_iter_ = _fit_liblinear(
+                X, y, self.C, self.fit_intercept, self.intercept_scaling,
+                self.class_weight, self.penalty, self.dual, self.verbose,
+                self.max_iter, self.tol
+                )
+            return self
+
+        n_classes = len(self.classes_)
+        classes_ = self.classes_
+        if n_classes < 2:
+            raise ValueError("This solver needs samples of at least 2 classes"
+                             " in the data, but the data contains only one"
+                             " class: %r" % classes_[0])
+
+        if len(self.classes_) == 2:
+            n_classes = 1
+            classes_ = classes_[1:]
+
+        self.coef_ = list()
+        self.intercept_ = np.zeros(n_classes)
+        
+        coefs_train = list()
+        times_train = list()
+
+        # Hack so that we iterate only once for the multinomial case.
+        if self.multi_class == 'multinomial':
+            classes_ = [None]
+        
+        for ind, class_ in enumerate(classes_):
+            #t0 = time.time()
+            coef_, _, callback_ = my_logistic_regression_path(
+                X, y, pos_class=class_, Cs=[self.C],
+                fit_intercept=self.fit_intercept, tol=self.tol,
+                verbose=self.verbose, solver=self.solver,
+                multi_class=self.multi_class, max_iter=self.max_iter,
+                class_weight=self.class_weight)
+            #print time.time() - t0
+            self.coef_.append(coef_[0])
+            coefs_train.append(callback_.coefs)
+            times_train.append(callback_.times)
+            
+        with open(os.path.join(self.root_dir, 'data.pkl'), 'wb') as f:
+            print 'saving the data'
+            pickle.dump(coefs_train, f)
+        with open(os.path.join(self.root_dir, 'times.pkl'), 'wb') as f:
+            print 'saving the data'
+            pickle.dump(times_train, f)     
+                    
+        self.coef_ = np.squeeze(self.coef_)
+        # For the binary case, this get squeezed to a 1-D array.
+        if self.coef_.ndim == 1:
+            self.coef_ = self.coef_[np.newaxis, :]
+        self.coef_ = np.asarray(self.coef_)
+        if self.fit_intercept:
+            self.intercept_ = self.coef_[:, -1]
+            self.coef_ = self.coef_[:, :-1]
+        return self
+
+    def predict_proba(self, X):
+        return self._predict_proba_lr(X)
+
+    def predict_log_proba(self, X):
+        return np.log(self.predict_proba(X))
+
+
+
 class LogisticRegression(BaseEstimator, LinearClassifierMixin,
                          _LearntSelectorMixin, SparseCoefMixin):
     """Logistic Regression (aka logit, MaxEnt) classifier.
