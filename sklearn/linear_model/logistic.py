@@ -411,7 +411,7 @@ def my_logistic_regression_path(X, y, pos_class=None, Cs=10, fit_intercept=True,
                              intercept_scaling=1., multi_class='ovr'):
     """My Logistic Regression Path
     """
- 
+
     if isinstance(Cs, numbers.Integral):
         Cs = np.logspace(-4, 4, Cs)
 
@@ -551,7 +551,7 @@ def my_logistic_regression_path(X, y, pos_class=None, Cs=10, fit_intercept=True,
                     func, w0, fprime=None,
                     args=(X, target, 1. / C, sample_weight),
                     iprint=(verbose > 0) - 1, pgtol=tol, maxiter=max_iter,
-                    callback=callback)  
+                    callback=callback)
                 callbacks.append(callback)
                 print len(callback.times)
             except TypeError:
@@ -579,9 +579,9 @@ def my_logistic_regression_path(X, y, pos_class=None, Cs=10, fit_intercept=True,
                 w0 = coef_.ravel()
         else:
             raise ValueError("solver must be one of {'liblinear', 'lbfgs', "
-                             "'newton-cg'}, got '%s' instead" % solver) 
-        
-                    
+                             "'newton-cg'}, got '%s' instead" % solver)
+
+
         if multi_class == 'multinomial':
             multi_w0 = np.reshape(w0, (classes.size, -1))
             if classes.size == 2:
@@ -589,9 +589,9 @@ def my_logistic_regression_path(X, y, pos_class=None, Cs=10, fit_intercept=True,
             coefs.append(multi_w0)
         else:
             coefs.append(w0)
-        
+
     return coefs, np.array(Cs), callback
-    
+
 
 
 
@@ -1055,7 +1055,7 @@ class MyLogisticRegression(BaseEstimator, LinearClassifierMixin,
     def __init__(self, penalty='l2', dual=False, tol=1e-4, C=1.0,
                  fit_intercept=True, intercept_scaling=1, class_weight=None,
                  random_state=None, solver='lbfgs', max_iter=100,
-                 multi_class='ovr', verbose=0, 
+                 multi_class='ovr', verbose=0,
                  root_dir=os.path.join(os.getcwd(), 'coefs')):
 
         self.penalty = penalty
@@ -1113,14 +1113,14 @@ class MyLogisticRegression(BaseEstimator, LinearClassifierMixin,
 
         self.coef_ = list()
         self.intercept_ = np.zeros(n_classes)
-        
+
         coefs_train = list()
         times_train = list()
 
         # Hack so that we iterate only once for the multinomial case.
         if self.multi_class == 'multinomial':
             classes_ = [None]
-        
+
         for ind, class_ in enumerate(classes_):
             #t0 = time.time()
             coef_, _, callback_ = my_logistic_regression_path(
@@ -1133,14 +1133,14 @@ class MyLogisticRegression(BaseEstimator, LinearClassifierMixin,
             self.coef_.append(coef_[0])
             coefs_train.append(callback_.coefs)
             times_train.append(callback_.times)
-            
+
         with open(os.path.join(self.root_dir, 'data.pkl'), 'wb') as f:
             print 'saving the data'
             pickle.dump(coefs_train, f)
         with open(os.path.join(self.root_dir, 'times.pkl'), 'wb') as f:
             print 'saving the data'
-            pickle.dump(times_train, f)     
-                    
+            pickle.dump(times_train, f)
+
         self.coef_ = np.squeeze(self.coef_)
         # For the binary case, this get squeezed to a 1-D array.
         if self.coef_.ndim == 1:

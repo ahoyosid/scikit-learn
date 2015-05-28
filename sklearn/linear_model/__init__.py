@@ -23,7 +23,8 @@ from .stochastic_gradient import SGDClassifier, SGDRegressor
 from .ridge import (Ridge, RidgeCV, RidgeClassifier, RidgeClassifierCV,
                     ridge_regression)
 from .logistic import (LogisticRegression, LogisticRegressionCV,
-                       logistic_regression_path)
+                       logistic_regression_path, my_logistic_regression_path,
+                       MyLogisticRegression)
 from .omp import (orthogonal_mp, orthogonal_mp_gram, OrthogonalMatchingPursuit,
                   OrthogonalMatchingPursuitCV)
 from .passive_aggressive import PassiveAggressiveClassifier
@@ -50,6 +51,7 @@ __all__ = ['ARDRegression',
            'LinearRegression',
            'Log',
            'LogisticRegression',
+           'MyLogisticRegression',
            'LogisticRegressionCV',
            'ModifiedHuber',
            'MultiTaskElasticNet',
