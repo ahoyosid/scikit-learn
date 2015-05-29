@@ -1044,8 +1044,8 @@ def _log_reg_scoring_path(X, y, train, test, pos_class=None, Cs=10,
 
 
 """ MY FUNCTION """
-import pickle
 import os
+import pandas as pd
 from os.path import join as pjoin
 
 class MyLogisticRegression(BaseEstimator, LinearClassifierMixin,
@@ -1140,9 +1140,10 @@ class MyLogisticRegression(BaseEstimator, LinearClassifierMixin,
 
         if not os.path.exists(self.root_dir):
             os.makedirs(self.root_dir)
-        with open(pjoin(self.root_dir, 'data.pkl'), 'wb') as f:
-            print 'saving the data'
-            pickle.dump(coefs_info, f)
+        pd.to_pickle(coefs_info, self.root_dir)
+        # with open(pjoin(self.root_dir, 'data.pkl'), 'wb') as f:
+        #     print 'saving the data'
+        #     pickle.dump(coefs_info, f)
         # with open(os.path.join(self.root_dir, 'times.pkl'), 'wb') as f:
         #     print 'saving the data'
         #     pickle.dump(times_train, f)
