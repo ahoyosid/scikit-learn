@@ -1121,6 +1121,7 @@ class MyLogisticRegression(BaseEstimator, LinearClassifierMixin,
         if self.multi_class == 'multinomial':
             classes_ = [None]
 
+        coefs_info = {}
         for ind, class_ in enumerate(classes_):
             #t0 = time.time()
             coef_, _, callback_ = my_logistic_regression_path(
@@ -1131,15 +1132,17 @@ class MyLogisticRegression(BaseEstimator, LinearClassifierMixin,
                 class_weight=self.class_weight)
             #print time.time() - t0
             self.coef_.append(coef_[0])
-            coefs_train.append(callback_.coefs)
-            times_train.append(callback_.times)
+            coefs_info.setdefault('coef_', []).append(callback_.coefs)
+            coefs_info.setdefault('class_', []).append(class_)
+            coefs_info.setdefault('time_', []).append(callback_.times)
+            # times_train.append(callback_.times)
 
         with open(os.path.join(self.root_dir, 'data.pkl'), 'wb') as f:
             print 'saving the data'
-            pickle.dump(coefs_train, f)
-        with open(os.path.join(self.root_dir, 'times.pkl'), 'wb') as f:
-            print 'saving the data'
-            pickle.dump(times_train, f)
+            pickle.dump(coefs_info, f)
+        # with open(os.path.join(self.root_dir, 'times.pkl'), 'wb') as f:
+        #     print 'saving the data'
+        #     pickle.dump(times_train, f)
 
         self.coef_ = np.squeeze(self.coef_)
         # For the binary case, this get squeezed to a 1-D array.
