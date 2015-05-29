@@ -1136,17 +1136,6 @@ class MyLogisticRegression(BaseEstimator, LinearClassifierMixin,
             coefs_info.setdefault('coef_', []).append(callback_.coefs)
             coefs_info.setdefault('class_', []).append(class_)
             coefs_info.setdefault('time_', []).append(callback_.times)
-            # times_train.append(callback_.times)
-
-        if not os.path.exists(self.root_dir):
-            os.makedirs(self.root_dir)
-        pd.to_pickle(coefs_info, pjoin(self.root_dir, 'data.pkl'))
-        # with open(pjoin(self.root_dir, 'data.pkl'), 'wb') as f:
-        #     print 'saving the data'
-        #     pickle.dump(coefs_info, f)
-        # with open(os.path.join(self.root_dir, 'times.pkl'), 'wb') as f:
-        #     print 'saving the data'
-        #     pickle.dump(times_train, f)
 
         self.coef_ = np.squeeze(self.coef_)
         # For the binary case, this get squeezed to a 1-D array.
@@ -1156,6 +1145,11 @@ class MyLogisticRegression(BaseEstimator, LinearClassifierMixin,
         if self.fit_intercept:
             self.intercept_ = self.coef_[:, -1]
             self.coef_ = self.coef_[:, :-1]
+
+        if not os.path.exists(self.root_dir):
+            os.makedirs(self.root_dir)
+        pd.to_pickle(coefs_info, pjoin(self.root_dir, 'data.pkl'))
+
         return self
 
     def predict_proba(self, X):
