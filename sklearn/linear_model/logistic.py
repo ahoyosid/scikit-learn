@@ -1140,7 +1140,7 @@ class MyLogisticRegression(BaseEstimator, LinearClassifierMixin,
 
         if not os.path.exists(self.root_dir):
             os.makedirs(self.root_dir)
-        pd.to_pickle(coefs_info, self.root_dir)
+        pd.to_pickle(coefs_info, pjoin(self.root_dir, 'data.pkl'))
         # with open(pjoin(self.root_dir, 'data.pkl'), 'wb') as f:
         #     print 'saving the data'
         #     pickle.dump(coefs_info, f)
