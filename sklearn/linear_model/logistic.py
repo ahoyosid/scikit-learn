@@ -1136,10 +1136,12 @@ class MyLogisticRegression(BaseEstimator, LinearClassifierMixin,
             # coefs_info.setdefault('coef_', []).append(callback_.coefs)
             # coefs_info.setdefault('class_', []).append(class_)
             # coefs_info.setdefault('time_', []).append(callback_.times)
-            if not os.path.exists(pjoin(self.root_dir, class_)):
-                os.makedirs(pjoin(self.root_dir, class_))
-            pd.to_pickle(callback_.coefs, pjoin(self.root_dir, class_, 'coefs.pkl'))
-            pd.to_pickle(callback_.times, pjoin(self.root_dir, class_, 'times.pkl'))
+            if not os.path.exists(pjoin(self.root_dir, str(class_))):
+                os.makedirs(pjoin(self.root_dir, str(class_)))
+            pd.to_pickle(callback_.coefs, pjoin(self.root_dir, str(class_),
+                                                'coefs.pkl'))
+            pd.to_pickle(callback_.times, pjoin(self.root_dir, str(class_),
+                                                'times.pkl'))
 
 
         self.coef_ = np.squeeze(self.coef_)
