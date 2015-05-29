@@ -1133,9 +1133,14 @@ class MyLogisticRegression(BaseEstimator, LinearClassifierMixin,
                 class_weight=self.class_weight)
             #print time.time() - t0
             self.coef_.append(coef_[0])
-            coefs_info.setdefault('coef_', []).append(callback_.coefs)
-            coefs_info.setdefault('class_', []).append(class_)
-            coefs_info.setdefault('time_', []).append(callback_.times)
+            # coefs_info.setdefault('coef_', []).append(callback_.coefs)
+            # coefs_info.setdefault('class_', []).append(class_)
+            # coefs_info.setdefault('time_', []).append(callback_.times)
+            if not os.path.exists(pjoin(self.root_dir, class_)):
+                os.makedirs(pjoin(self.root_dir, class_))
+            pd.to_pickle(callback_.coefs, pjoin(self.root_dir, class_, 'coefs.pkl'))
+            pd.to_pickle(callback_.times, pjoin(self.root_dir, class_, 'times.pkl'))
+
 
         self.coef_ = np.squeeze(self.coef_)
         # For the binary case, this get squeezed to a 1-D array.
@@ -1145,10 +1150,6 @@ class MyLogisticRegression(BaseEstimator, LinearClassifierMixin,
         if self.fit_intercept:
             self.intercept_ = self.coef_[:, -1]
             self.coef_ = self.coef_[:, :-1]
-
-        if not os.path.exists(self.root_dir):
-            os.makedirs(self.root_dir)
-        pd.to_pickle(coefs_info, pjoin(self.root_dir, 'data.pkl'))
 
         return self
 
