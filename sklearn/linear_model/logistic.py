@@ -1138,10 +1138,9 @@ class MyLogisticRegression(BaseEstimator, LinearClassifierMixin,
             coefs_info.setdefault('time_', []).append(callback_.times)
             # times_train.append(callback_.times)
 
-        coefs_dir = pjoin(self.root_dir, 'data.pkl')
-        if not os.path.exists(coefs_dir):
-            os.makedirs(coefs_dir)
-        with open(coefs_dir, 'wb') as f:
+        if not os.path.exists(self.root_dir):
+            os.makedirs(self.root_dir)
+        with open(pjoin(self.root_dir, 'data.pkl'), 'wb') as f:
             print 'saving the data'
             pickle.dump(coefs_info, f)
         # with open(os.path.join(self.root_dir, 'times.pkl'), 'wb') as f:
